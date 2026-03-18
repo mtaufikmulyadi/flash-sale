@@ -232,7 +232,7 @@ npx ts-node src/db/seed.ts
 - [x] Step 1 — Database schema + Redis client (19 tests ✓)
 - [x] Step 2 — Sale service logic (23 tests ✓)
 - [x] Step 2b — Mock auth service (20 tests ✓)
-- [ ] Step 3 — Purchase service logic
+- [x] Step 3 — Purchase service logic (20 tests ✓)
 - [ ] Step 4 — API routes + middleware
 - [ ] Step 5 — React frontend
 - [ ] Step 6 — Stress test
@@ -284,6 +284,69 @@ Pure functions in `src/services/saleService.ts` — no HTTP, no routes. All time
 For this project, `userId` in the request body acts as identity — there is no real login system. This is intentional for the take-home scope. In production, this would be a JWT signed by an auth server. The server would verify the signature and extract the `userId` from the token rather than trusting whatever the client sends — so nobody can fake being someone else.
 
 **Server time for sale window** — The sale window check always uses `Date.now()` on the server, never anything from the client's request. If you trusted the client's clock, a user could manipulate their system time to attempt a purchase before the sale opens. Server time only.
+
+---
+
+## Purchase Service
+
+`src/services/purchaseService.ts` — the heart of the system. Runs the full 4-gate atomic buy flow.
+
+| Function | What it does |
+|---|---|
+| `attemptPurchase(userId)` | Runs the full buy flow, returns a typed result |
+| `getPurchaseStatus(userId)` | Checks Redis then DB — has this user bought? |
+
+### Buy flow
+
+```
+attemptPurchase("alice@test.com")
+  │
+  ├─ Gate 1: sale exists + isSaleActive()
+  │           fail → { success: false, code: "SALE_NOT_FOUND" | "SALE_NOT_ACTIVE" }
+  │
+  ├─ Gate 2: SETNX user:{userId}:bought NX EX 86400
+  │           fail → { success: false, code: "ALREADY_PURCHASED" }
+  │
+  ├─ Gate 3: DECR sale:{saleId}:stock
+  │           < 0  → compensate (INCR + DEL user key)
+  │                  { success: false, code: "SOLD_OUT" }
+  │
+  └─ Gate 4: INSERT INTO purchases
+              fail → compensate (INCR + DEL user key)
+                     { success: false, code: "DB_ERROR" }
+              pass → { success: true, purchaseId: N }
+```
+
+### Compensation (saga pattern)
+
+If stock goes negative or the DB write fails, we immediately undo both Redis operations in parallel:
+
+```ts
+await Promise.all([
+  incrementStock(saleId),           // restore the counter
+  unmarkUserBought(saleId, userId), // remove the user key
+]);
+```
+
+This ensures a failed purchase never permanently consumes a stock slot or blocks a user from retrying.
+
+### Return type
+
+`attemptPurchase` returns a typed result object — never throws. Route handlers just check `result.success` and send the correct HTTP status code:
+
+```ts
+type PurchaseResult =
+  | { success: true;  purchaseId: number; message: string }
+  | { success: false; code: PurchaseErrorCode; message: string }
+
+// HTTP mapping:
+// success: true       → 201 Created
+// SALE_NOT_FOUND      → 400 Bad Request
+// SALE_NOT_ACTIVE     → 400 Bad Request
+// ALREADY_PURCHASED   → 409 Conflict
+// SOLD_OUT            → 410 Gone
+// DB_ERROR            → 500 Internal Server Error
+```
 
 ---
 
