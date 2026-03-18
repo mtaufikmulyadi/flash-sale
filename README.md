@@ -108,8 +108,7 @@ flash-sale/
 │       └── components/SaleWidget.tsx
 ├── package.json
 ├── tsconfig.json
-├── jest.config.ts
-└── setup.py
+└── jest.config.ts
 ```
 
 ---
@@ -231,7 +230,8 @@ npx ts-node src/db/seed.ts
 ## Implementation Progress
 
 - [x] Step 1 — Database schema + Redis client (19 tests ✓)
-- [ ] Step 2 — Sale service logic
+- [x] Step 2 — Sale service logic (23 tests ✓)
+- [x] Step 2b — Mock auth service (20 tests ✓)
 - [ ] Step 3 — Purchase service logic
 - [ ] Step 4 — API routes + middleware
 - [ ] Step 5 — React frontend
@@ -239,7 +239,37 @@ npx ts-node src/db/seed.ts
 
 ---
 
-## Trade-offs & Notes
+## Sale Service
+
+Pure functions in `src/services/saleService.ts` — no HTTP, no routes. All time checks use **server time only** (`Date.now()`), never the client clock.
+
+| Function | What it does |
+|---|---|
+| `isSaleActive(sale)` | Returns true if now is within start/end window |
+| `isSaleUpcoming(sale)` | Returns true if now is before start_time |
+| `isSaleEnded(sale)` | Returns true if now is past end_time |
+| `getSaleStatus(sale)` | Returns `"upcoming"` / `"active"` / `"ended"` |
+| `getActiveSale()` | Fetches most recent sale from DB |
+| `getSaleState()` | Full state including live Redis stock count |
+| `initialiseSaleStock(id)` | Seeds Redis counter from DB total_stock |
+
+`getSaleState()` is what `GET /api/sale` returns to the frontend:
+
+```json
+{
+  "id": 1,
+  "product_name": "Limited Edition Sneaker",
+  "total_stock": 10,
+  "remaining_stock": 7,
+  "status": "active",
+  "start_time": "2024-06-01T14:00:00.000Z",
+  "end_time": "2024-06-01T14:30:00.000Z"
+}
+```
+
+---
+
+
 
 **Redis restart risk** — If Redis restarts mid-sale, the in-memory stock counter is lost. Mitigations: enable Redis AOF persistence (`appendonly yes`), or re-initialise from DB count on startup. For this project, Docker's `--restart unless-stopped` flag keeps Redis alive.
 
@@ -247,4 +277,76 @@ npx ts-node src/db/seed.ts
 
 **Rate limiter scope** — The current rate limiter is per-process. In a multi-instance deployment behind a load balancer, use a Redis-backed sliding window limiter so limits are global across all instances.
 
-**No real auth** — `userId` in the request body is treated as identity. In production, this would be a JWT signed by an auth service — the server would verify the signature and extract the userId rather than trusting the client.
+**Authentication vs Authorization** — These are two different things that are easy to mix up:
+- **Authentication (gate 4)** = *Who are you?* — proving identity. `"I am alice@gmail.com"`
+- **Authorization (gate 5)** = *What can you do?* — checking permission. `"Is alice allowed to buy?"`
+
+For this project, `userId` in the request body acts as identity — there is no real login system. This is intentional for the take-home scope. In production, this would be a JWT signed by an auth server. The server would verify the signature and extract the `userId` from the token rather than trusting whatever the client sends — so nobody can fake being someone else.
+
+**Server time for sale window** — The sale window check always uses `Date.now()` on the server, never anything from the client's request. If you trusted the client's clock, a user could manipulate their system time to attempt a purchase before the sale opens. Server time only.
+
+---
+
+## Auth Service (Mock JWT)
+
+`src/services/authService.ts` + `src/middleware/authMiddleware.ts`
+
+Simulates a real JWT auth system without a full auth server. The pattern is production-correct — only the secret management is simplified.
+
+| Function | Used by | What it does |
+|---|---|---|
+| `generateToken(userId)` | Tests + seed script | Signs a JWT — acts as the mock auth server |
+| `verifyToken(token)` | `authMiddleware` | Verifies signature, returns payload. Throws on invalid/expired |
+| `extractBearerToken(header)` | `authMiddleware` | Parses `Authorization: Bearer <token>` header |
+
+**How the flow works:**
+
+```
+Client sends:  Authorization: Bearer eyJhbG...
+
+authMiddleware:
+  1. extractBearerToken(req.headers.authorization) → token
+  2. verifyToken(token) → { userId: "alice@test.com" }
+  3. req.userId = "alice@test.com"
+
+Route handler:
+  reads req.userId — never touches the Authorization header directly
+
+Service layer:
+  receives userId as a plain string parameter
+  completely auth-agnostic — doesn't know or care how it was verified
+```
+
+**Why services don't need to change** — separation of concerns. The service layer only handles business logic. How `userId` was verified (JWT, session, API key) is the middleware's responsibility. This makes services easy to test (just pass any string) and easy to swap auth methods later without touching business logic.
+
+**What's mocked vs what's real:**
+
+| | This project | Production |
+|---|---|---|
+| Token signing | `generateToken()` in authService | Dedicated auth server (Auth0, Cognito, custom) |
+| Token verification | `verifyToken()` — same pattern | `verifyToken()` — identical code |
+| Secret storage | `JWT_SECRET` in `.env` | AWS KMS, HashiCorp Vault, etc. |
+| Token expiry | 24h hardcoded | Configurable per user role |
+
+Generate a secure secret for your `.env`:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+---
+
+
+
+The following are intentionally not implemented due to the take-home scope. They are documented here to show awareness of what a production system would require.
+
+| Feature | What's missing | Production approach |
+|---|---|---|
+| **Real authentication** | Mock JWT — `userId` verified via signed token, but no real auth server | Dedicated auth server (Auth0, Cognito) issues tokens |
+| **Real authorization** | No ban list, no user roles | Middleware checks user status against a users table |
+| **Multi-instance rate limiting** | Rate limiter is per-process only | Redis-backed sliding window shared across all instances |
+| **Redis persistence** | Stock lost on Redis restart | Enable AOF (`appendonly yes`) or re-seed from DB on startup |
+| **Payment processing** | No actual payment step | Queue payment to a third-party API (Stripe etc.) after reservation |
+| **Email confirmation** | No confirmation sent | Queue an email job after successful purchase |
+| **Sale admin UI** | Sale is created via seed script only | Admin dashboard to create/configure sales |
+| **Multi-product support** | Single product per sale only | Extend schema to support product catalogue |
+| **Global deployment** | Single server, single region | Multi-region with distributed Redis cluster |
