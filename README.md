@@ -198,10 +198,13 @@ cp .env.example .env
 ### Run tests
 
 ```bash
-# Unit tests (DB + Redis + service logic)
+# All tests (81 total)
+npm test
+
+# Unit tests only (DB, Redis, services)
 npm run test:unit
 
-# Integration tests (full HTTP routes)
+# Integration tests only (HTTP routes)
 npm run test:integration
 
 # Stress test (500 concurrent purchase attempts)
@@ -233,7 +236,7 @@ npx ts-node src/db/seed.ts
 - [x] Step 2 — Sale service logic (23 tests ✓)
 - [x] Step 2b — Mock auth service (20 tests ✓)
 - [x] Step 3 — Purchase service logic (20 tests ✓)
-- [ ] Step 4 — API routes + middleware
+- [x] Step 4 — API routes + middleware (19 tests ✓)
 - [ ] Step 5 — React frontend
 - [ ] Step 6 — Stress test
 
@@ -287,7 +290,62 @@ For this project, `userId` in the request body acts as identity — there is no 
 
 ---
 
-## Purchase Service
+## API Routes
+
+`src/routes/` — thin route handlers that validate input, call the service layer, and map results to HTTP status codes. No business logic lives here.
+
+### Endpoints
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/health` | None | Server health check |
+| `GET` | `/api/sale` | None | Current sale state + live stock |
+| `POST` | `/api/purchase` | JWT | Attempt to purchase |
+| `GET` | `/api/purchase/:userId` | JWT | Check own purchase status |
+| `POST` | `/auth/token` | None | Get a JWT (dev only) |
+
+### Request / response examples
+
+**Get a token (dev only):**
+```bash
+curl -X POST http://localhost:3000/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "alice@example.com"}'
+
+# { "token": "eyJhbG...", "userId": "alice@example.com" }
+```
+
+**Check sale status:**
+```bash
+curl http://localhost:3000/api/sale
+
+# { "id": 1, "product_name": "Limited Edition Sneaker",
+#   "total_stock": 10, "remaining_stock": 7,
+#   "status": "active", "start_time": "...", "end_time": "..." }
+```
+
+**Attempt a purchase:**
+```bash
+curl -X POST http://localhost:3000/api/purchase \
+  -H "Authorization: Bearer eyJhbG..."
+
+# 201: { "message": "Purchase confirmed", "purchaseId": 42 }
+# 400: { "error": "SALE_NOT_ACTIVE", "message": "Sale has ended" }
+# 409: { "error": "ALREADY_PURCHASED", "message": "You have already purchased..." }
+# 410: { "error": "SOLD_OUT", "message": "Sorry, this item is sold out" }
+```
+
+### Key implementation notes
+
+**Rate limiter is disabled in `NODE_ENV=test`** — the rate limiter is a global Fastify plugin that counts requests across all tests in a shared instance. Disabling it in test mode prevents tests from accidentally triggering each other's limits. The rate limiter is fully active in development and production.
+
+**Routes are auth-agnostic via `preHandler`** — protected routes use `{ preHandler: [authenticate] }`. The `authenticate` function verifies the JWT and sets `req.userId`. The route handler never touches the `Authorization` header directly.
+
+**userId comes from the token, not the body** — `POST /api/purchase` has no request body. The userId is extracted from the verified JWT by `authMiddleware` and placed on `req.userId`. This prevents clients from impersonating other users.
+
+---
+
+
 
 `src/services/purchaseService.ts` — the heart of the system. Runs the full 4-gate atomic buy flow.
 
