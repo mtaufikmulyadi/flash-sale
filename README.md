@@ -225,10 +225,62 @@ npm run build && npm start
 
 ```bash
 npx ts-node src/db/seed.ts
-# Creates a sale starting 1 minute from now with 10 items
+```
+
+The seed script is safe to run multiple times. Each run:
+1. Clears all `sale:*` keys from Redis
+2. Wipes the `sales` and `purchases` tables
+3. Inserts a fresh sale starting 1 minute from now with 10 items
+4. Seeds the Redis stock counter from the DB
+
+> **Never run the seed while a sale is in progress** — it will wipe active purchases.
+
+---
+
+## Known Issues & Fixes
+
+### Bug — stock shows more than total (e.g. `14 / 10`)
+
+**Cause:** Running `npx ts-node src/db/seed.ts` multiple times without clearing Redis creates new DB sales but reuses stale Redis stock keys from previous runs. The counter ends up out of sync with the actual stock.
+
+**Fix — always use the seed script to reset:**
+```bash
+del flash-sale.db
+docker exec flash-sale-redis redis-cli FLUSHALL
+npx ts-node src/db/seed.ts
+```
+
+The updated seed script handles this automatically — it flushes Redis sale keys and clears the DB before every seed run.
+
+**Safety net in UI:** `SaleStatus.tsx` clamps `remaining_stock` to `[0, total]` before rendering, so the bar and counter never display an impossible value even if Redis has stale data.
+
+### Bug — rate limiter triggers during integration tests
+
+**Cause:** All integration tests share one Fastify instance. The rate limiter counts requests globally across that shared instance, so later tests hit the 10 req/10s limit and receive 429 instead of the expected status code.
+
+**Fix:** Rate limiter is disabled when `NODE_ENV=test`. It is fully active in development and production.
+
+```ts
+if (process.env.NODE_ENV !== "test") {
+  await app.register(rateLimit, { max: 10, timeWindow: "10 seconds" });
+}
+```
+
+### Bug — `req.userId` not available in route handlers
+
+**Cause:** Fastify's plugin encapsulation scope prevents decorator values from being accessible across plugin boundaries when using `app.authenticate` as a decorator.
+
+**Fix:** `authenticate` is exported as a plain function from `authMiddleware.ts` and imported directly by routes. The `userId` decoration happens in `buildApp()` before any routes register.
+
+```ts
+// routes import authenticate directly — no plugin scope issues
+import { authenticate } from "../middleware/authMiddleware";
+app.post("/purchase", { preHandler: [authenticate] }, handler);
 ```
 
 ---
+
+
 
 ## Implementation Progress
 
@@ -237,7 +289,7 @@ npx ts-node src/db/seed.ts
 - [x] Step 2b — Mock auth service (20 tests ✓)
 - [x] Step 3 — Purchase service logic (20 tests ✓)
 - [x] Step 4 — API routes + middleware (19 tests ✓)
-- [ ] Step 5 — React frontend
+- [x] Step 5 — React frontend (14 tests ✓)
 - [ ] Step 6 — Stress test
 
 ---
