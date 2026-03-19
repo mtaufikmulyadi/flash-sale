@@ -1,0 +1,191 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:148.0) Gecko/20100101 Firefox/148.0" version="29.6.4">
+  <diagram name="Page-1" id="F3Oph-PbkLnd0J_ux4O8">
+    <mxGraphModel dx="1375" dy="787" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-102" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=22;fontStyle=1;" value="Flash Sale System — Complete Flow" vertex="1">
+          <mxGeometry height="40" width="600" x="425" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-103" parent="1" style="text;html=1;strokeColor=none;fillColor=#f0f0f0;align=center;fontSize=13;fontStyle=1;rounded=1;" value="① ADMIN SETUP" vertex="1">
+          <mxGeometry height="30" width="200" x="60" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-104" parent="1" style="text;html=1;strokeColor=none;fillColor=#f0f0f0;align=center;fontSize=13;fontStyle=1;rounded=1;" value="② AUTH" vertex="1">
+          <mxGeometry height="30" width="140" x="321" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-105" parent="1" style="text;html=1;strokeColor=none;fillColor=#f0f0f0;align=center;fontSize=13;fontStyle=1;rounded=1;" value="③ PURCHASE (RESERVE)" vertex="1">
+          <mxGeometry height="30" width="220" x="550" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-106" parent="1" style="text;html=1;strokeColor=none;fillColor=#f0f0f0;align=center;fontSize=13;fontStyle=1;rounded=1;" value="④ PAYMENT" vertex="1">
+          <mxGeometry height="30" width="160" x="860" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-107" parent="1" style="text;html=1;strokeColor=none;fillColor=#f0f0f0;align=center;fontSize=13;fontStyle=1;rounded=1;" value="⑤ END OF SALE" vertex="1">
+          <mxGeometry height="30" width="160" x="1295" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-108" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" value="Admin opens&#xa;/admin page" vertex="1">
+          <mxGeometry height="50" width="140" x="90" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-109" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" value="Fills form:&#xa;product, stock,&#xa;start/end time" vertex="1">
+          <mxGeometry height="60" width="140" x="90" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-110" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" value="POST /admin/sale&#xa;→ DB cleared&#xa;→ Redis seeded" vertex="1">
+          <mxGeometry height="60" width="140" x="90" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-111" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" value="Sale status:&#xa;UPCOMING" vertex="1">
+          <mxGeometry height="50" width="140" x="90" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-112" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-108" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-109">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-113" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-109" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-110">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-114" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-110" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-111">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-115" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" value="User enters&#xa;userId/email" vertex="1">
+          <mxGeometry height="50" width="130" x="331" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-116" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" value="POST /auth/token&#xa;→ JWT signed" vertex="1">
+          <mxGeometry height="50" width="130" x="331" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-117" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" value="JWT stored&#xa;in memory" vertex="1">
+          <mxGeometry height="50" width="130" x="331" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-118" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-115" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-116">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-119" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-116" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-117">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-120" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" value="Sale opens&#xa;→ button active" vertex="1">
+          <mxGeometry height="50" width="130" x="607" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-121" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" value="Click Buy Now&#xa;POST /api/purchase" vertex="1">
+          <mxGeometry height="50" width="130" x="607" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-122" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" value="Gate 1: sale active?&#xa;Gate 2: SETNX (dedup)&#xa;Gate 3: DECR (stock)" vertex="1">
+          <mxGeometry height="60" width="160" x="592" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-123" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" value="DB: status=pending&#xa;Redis TTL=10min" vertex="1">
+          <mxGeometry height="50" width="160" x="592" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-124" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" value="Show payment&#xa;screen + countdown" vertex="1">
+          <mxGeometry height="50" width="160" x="592" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-125" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-120" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-121">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-126" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-121" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-122">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-127" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-122" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-123">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-128" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-123" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-124">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-129" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" value="User clicks Pay Now&#xa;POST /api/payment&#xa;{ action: &quot;pay&quot; }" vertex="1">
+          <mxGeometry height="60" width="140" x="870" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-130" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" value="Check DB: pending?&#xa;Check Redis: TTL alive?" vertex="1">
+          <mxGeometry height="50" width="140" x="870" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-131" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" value="DB: status=confirmed&#xa;payment_id=PAY-xxx&#xa;Redis reservation DEL" vertex="1">
+          <mxGeometry height="60" width="140" x="870" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-132" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" value="Show: Purchase&#xa;confirmed + ref" vertex="1">
+          <mxGeometry height="50" width="140" x="870" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-133" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" value="OR: Cancel →&#xa;INCR stock&#xa;DEL user key" vertex="1">
+          <mxGeometry height="60" width="120" x="1120" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-134" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" value="OR: Expire →&#xa;cleanup job&#xa;restores slot" vertex="1">
+          <mxGeometry height="60" width="120" x="1120" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-135" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-129" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-130">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-136" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-130" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-131">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-137" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-131" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-132">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-138" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-130" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;" target="ZyucB7r_x_mC7OHmgpJQ-133" value="cancel">
+          <mxGeometry relative="1" x="-0.2" y="-15" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-139" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-133" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;" target="ZyucB7r_x_mC7OHmgpJQ-134" value="expire">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-140" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" value="end_time reached&#xa;server time check" vertex="1">
+          <mxGeometry height="50" width="140" x="1315" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-141" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" value="GET /api/sale&#xa;→ status=ended" vertex="1">
+          <mxGeometry height="50" width="140" x="1315" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-142" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" value="Frontend shows&#xa;Sale has ended" vertex="1">
+          <mxGeometry height="50" width="140" x="1315" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-143" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" value="Buy Now disabled&#xa;New sale can be&#xa;created in /admin" vertex="1">
+          <mxGeometry height="60" width="140" x="1315" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-144" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-140" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-141">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-145" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-141" style="edgeStyle=orthogonalEdgeStyle;" target="ZyucB7r_x_mC7OHmgpJQ-142">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-146" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1384.5" y="350" as="sourcePoint" />
+            <mxPoint x="1384.5" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-147" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#666;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="ZyucB7r_x_mC7OHmgpJQ-120" value="sale created">
+          <mxGeometry relative="1" x="-0.4864" y="5" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="490" y="425" />
+              <mxPoint x="490" y="165" />
+            </Array>
+            <mxPoint x="230" y="425" as="sourcePoint" />
+            <mxPoint x="657" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-148" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-117" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#666;fillColor=#0000FF;" target="ZyucB7r_x_mC7OHmgpJQ-121" value="JWT ready">
+          <mxGeometry relative="1" x="-0.3705" y="5" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="550" y="325" />
+              <mxPoint x="550" y="245" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-149" edge="1" parent="1" source="ZyucB7r_x_mC7OHmgpJQ-124" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#666;" target="ZyucB7r_x_mC7OHmgpJQ-129" value="reserved">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="820" y="495" />
+              <mxPoint x="820" y="170" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZyucB7r_x_mC7OHmgpJQ-150" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#666;" value="sale ends">
+          <mxGeometry relative="1" x="0.2248" y="10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="790" y="165" />
+              <mxPoint x="790" y="130" />
+              <mxPoint x="1220" y="130" />
+              <mxPoint x="1220" y="165" />
+            </Array>
+            <mxPoint x="740" y="165" as="sourcePoint" />
+            <mxPoint x="1315" y="165" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
