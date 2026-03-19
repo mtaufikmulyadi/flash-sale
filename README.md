@@ -122,23 +122,39 @@ sales (
   start_time, end_time, status, created_at
 )
 
--- Confirmed purchases — UNIQUE(user_id, sale_id) as DB-level safety net
+-- Purchases — two-step flow: pending → confirmed | expired
+-- UNIQUE(user_id, sale_id) as DB-level safety net
 purchases (
-  id, user_id, sale_id, status, purchased_at
+  id, user_id, sale_id,
+  status,          -- pending | confirmed | expired
+  reserved_until,  -- ISO timestamp — reservation window (10 min)
+  payment_id,      -- mock payment reference e.g. PAY-1234-ABCDEF
+  purchased_at
 )
 ```
 
-Redis is the fast guard. The DB UNIQUE constraint is a fallback in case Redis ever restarts mid-sale.
+Redis is the fast guard. The DB `UNIQUE` constraint is a fallback in case Redis ever restarts mid-sale.
+
+**Purchase status transitions:**
+```
+pending → confirmed   (user paid within 10 min)
+pending → expired     (cleanup job ran, window elapsed, slot restored)
+```
+
+Cancelled reservations have their DB row deleted entirely — this allows the user to retry cleanly without hitting the UNIQUE constraint.
 
 ---
 
 ## Redis Key Design
 
 ```
-sale:{saleId}:stock              ← INT  remaining stock counter
-sale:{saleId}:user:{userId}:bought ← "1"  exists if user has purchased (TTL 24h)
-sale:{saleId}:config             ← JSON cached sale config
+sale:{saleId}:stock                        ← INT  remaining stock counter
+sale:{saleId}:user:{userId}:bought         ← "1"  exists if user has reserved/purchased (TTL 24h)
+sale:{saleId}:user:{userId}:reservation   ← ISO  reservation expiry timestamp (TTL 10 min)
+sale:{saleId}:config                       ← JSON cached sale config
 ```
+
+The reservation key has a **10-minute TTL**. When it expires naturally, the cleanup job detects the pending DB row and restores the stock slot. The `bought` key persists for 24h to prevent double-reservation attempts.
 
 All key names are defined in one place (`src/cache/redis.ts → RedisKeys`) so renaming is a single-file change.
 
@@ -337,6 +353,20 @@ Fires **500 concurrent purchase requests** at a sale with **10 items**. Uses Fas
 
 ## Known Issues & Fixes
 
+### Bug — `no such column: reserved_until` after schema update
+
+**Cause:** The `purchases` table was created with the old schema (before `reserved_until`, `payment_id` columns were added). SQLite does not auto-migrate existing databases when the schema file changes.
+
+**Fix — delete the DB file and reseed:**
+```bash
+del flash-sale.db          # Windows
+npx ts-node src/db/seed.ts --now --stock 10
+```
+
+The DB file is recreated from `schema.sql` on next server start. Always do this after pulling schema changes.
+
+---
+
 ### Bug — stock shows more than total (e.g. `14 / 10`)
 
 **Cause:** Running `npx ts-node src/db/seed.ts` multiple times without clearing Redis creates new DB sales but reuses stale Redis stock keys from previous runs. The counter ends up out of sync with the actual stock.
@@ -385,10 +415,64 @@ app.post("/purchase", { preHandler: [authenticate] }, handler);
 - [x] Step 1 — Database schema + Redis client (19 tests ✓)
 - [x] Step 2 — Sale service logic (23 tests ✓)
 - [x] Step 2b — Mock auth service (20 tests ✓)
-- [x] Step 3 — Purchase service logic (20 tests ✓)
-- [x] Step 4 — API routes + middleware (19 tests ✓)
-- [x] Step 5 — React frontend — sale page + admin page (14 tests ✓)
+- [x] Step 3 — Purchase service + payment flow (40 tests ✓)
+- [x] Step 4 — API routes + middleware (25 tests ✓)
+- [x] Step 5 — React frontend — sale page + admin page (17 tests ✓)
 - [x] Step 6 — Stress test (7 assertions ✓)
+
+---
+
+## Payment Service
+
+`src/services/purchaseService.ts` — two-step purchase flow with 10-minute reservation window.
+
+### Flow
+
+```
+Step 1 — POST /api/purchase
+  → SETNX user bought key
+  → DECR stock slot
+  → INSERT purchase status="pending", reserved_until = now + 10min
+  → Redis reservation key TTL = 10 min
+  → returns { purchaseId, reservedUntil }
+
+Step 2 — POST /api/payment  { action: "pay" | "cancel" }
+  → "pay"    → UPDATE status="confirmed", payment_id="PAY-xxx" → 200
+  → "cancel" → DELETE purchase row + INCR stock + DEL user key  → 200
+  → expired  → reservation TTL elapsed                          → 410
+```
+
+### Reservation expiry — automatic stock restore
+
+If a user reserves a slot but never pays or cancels (e.g. closes the browser), the slot is automatically restored by the **cleanup job** (`src/jobs/cleanupJob.ts`):
+
+```
+Every 60 seconds:
+  SELECT pending purchases WHERE reserved_until < now
+  → UPDATE status = "expired"
+  → INCR stock (restore slot)
+  → DEL user bought key (allow retry)
+```
+
+The cleanup job also runs once on server startup to catch any reservations that expired while the server was down.
+
+### Purchase states
+
+| Status | Meaning | Stock |
+|---|---|---|
+| `pending` | Reserved, awaiting payment | Held |
+| `confirmed` | Payment completed | Consumed |
+| `expired` | 10-min window elapsed, cleanup ran | Restored |
+| *(deleted)* | User explicitly cancelled | Restored immediately |
+
+### Mock payment reference
+
+Payment is simulated — `"pay"` generates a fake reference ID:
+```
+PAY-1714300000000-A3F2B1
+```
+
+In production this would be a Stripe/payment gateway webhook confirming the charge.
 
 ---
 
@@ -496,7 +580,8 @@ Creating a new sale clears all existing sales and purchases and re-seeds Redis. 
 |---|---|---|---|
 | `GET` | `/health` | None | Server health check |
 | `GET` | `/api/sale` | None | Current sale state + live stock |
-| `POST` | `/api/purchase` | JWT | Attempt to purchase |
+| `POST` | `/api/purchase` | JWT | Reserve a slot (pending) |
+| `POST` | `/api/payment` | JWT | Pay or cancel reservation |
 | `GET` | `/api/purchase/:userId` | JWT | Check own purchase status |
 | `POST` | `/auth/token` | None | Get a JWT (dev only) |
 | `GET` | `/admin/sale` | None | Get current sale config |
@@ -664,7 +749,7 @@ The following are intentionally not implemented due to the take-home scope. They
 | **Real authorization** | No ban list, no user roles | Middleware checks user status against a users table |
 | **Multi-instance rate limiting** | Rate limiter is per-process only | Redis-backed sliding window shared across all instances |
 | **Redis persistence** | Stock lost on Redis restart | Enable AOF (`appendonly yes`) or re-seed from DB on startup |
-| **Payment processing** | No actual payment step | Queue payment to a third-party API (Stripe etc.) after reservation |
+| **Payment processing** | Mock payment — generates a fake reference ID, no real charge | Stripe/payment gateway webhook confirming the charge |
 | **Email confirmation** | No confirmation sent | Queue an email job after successful purchase |
 | **Sale admin UI** | Sale is created via seed script only | Admin dashboard to create/configure sales |
 | **Multi-product support** | Single product per sale only | Extend schema to support product catalogue |

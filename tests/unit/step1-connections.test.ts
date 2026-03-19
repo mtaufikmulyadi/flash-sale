@@ -76,8 +76,8 @@ describe("Database — schema and basic operations", () => {
     ).run("Test Sneaker", 10, "2099-01-01T00:00:00.000Z", "2099-01-01T01:00:00.000Z");
 
     const result = db
-      .prepare(`INSERT INTO purchases (user_id, sale_id) VALUES (?, ?)`)
-      .run("alice@test.com", 1);
+      .prepare(`INSERT INTO purchases (user_id, sale_id, reserved_until) VALUES (?, ?, ?)`)
+      .run("alice@test.com", 1, new Date(Date.now() + 600_000).toISOString());
 
     expect(result.changes).toBe(1);
   });
@@ -88,8 +88,8 @@ describe("Database — schema and basic operations", () => {
       `INSERT INTO sales (product_name, total_stock, start_time, end_time)
        VALUES (?, ?, ?, ?)`
     ).run("Test Sneaker", 10, "2099-01-01T00:00:00.000Z", "2099-01-01T01:00:00.000Z");
-    db.prepare(`INSERT INTO purchases (user_id, sale_id) VALUES (?, ?)`).run(
-      "alice@test.com", 1
+    db.prepare(`INSERT INTO purchases (user_id, sale_id, reserved_until) VALUES (?, ?, ?)`).run(
+      "alice@test.com", 1, new Date(Date.now() + 600_000).toISOString()
     );
 
     const purchase = db
@@ -98,7 +98,7 @@ describe("Database — schema and basic operations", () => {
 
     expect(purchase.user_id).toBe("alice@test.com");
     expect(purchase.sale_id).toBe(1);
-    expect(purchase.status).toBe("confirmed");
+    expect(purchase.status).toBe("pending");
   });
 
   it("rejects duplicate purchase for same user + sale (UNIQUE constraint)", () => {
@@ -107,13 +107,13 @@ describe("Database — schema and basic operations", () => {
       `INSERT INTO sales (product_name, total_stock, start_time, end_time)
        VALUES (?, ?, ?, ?)`
     ).run("Test Sneaker", 10, "2099-01-01T00:00:00.000Z", "2099-01-01T01:00:00.000Z");
-    db.prepare(`INSERT INTO purchases (user_id, sale_id) VALUES (?, ?)`).run(
-      "alice@test.com", 1
+    db.prepare(`INSERT INTO purchases (user_id, sale_id, reserved_until) VALUES (?, ?, ?)`).run(
+      "alice@test.com", 1, new Date(Date.now() + 600_000).toISOString()
     );
 
     expect(() => {
-      db.prepare(`INSERT INTO purchases (user_id, sale_id) VALUES (?, ?)`).run(
-        "alice@test.com", 1
+      db.prepare(`INSERT INTO purchases (user_id, sale_id, reserved_until) VALUES (?, ?, ?)`).run(
+        "alice@test.com", 1, new Date(Date.now() + 600_000).toISOString()
       );
     }).toThrow(/UNIQUE constraint failed/);
   });
@@ -125,12 +125,12 @@ describe("Database — schema and basic operations", () => {
        VALUES (?, ?, ?, ?)`
     ).run("Test Sneaker", 10, "2099-01-01T00:00:00.000Z", "2099-01-01T01:00:00.000Z");
 
-    db.prepare(`INSERT INTO purchases (user_id, sale_id) VALUES (?, ?)`).run(
-      "alice@test.com", 1
+    db.prepare(`INSERT INTO purchases (user_id, sale_id, reserved_until) VALUES (?, ?, ?)`).run(
+      "alice@test.com", 1, new Date(Date.now() + 600_000).toISOString()
     );
     const result = db
-      .prepare(`INSERT INTO purchases (user_id, sale_id) VALUES (?, ?)`)
-      .run("bob@test.com", 1);
+      .prepare(`INSERT INTO purchases (user_id, sale_id, reserved_until) VALUES (?, ?, ?)`)
+      .run("bob@test.com", 1, new Date(Date.now() + 600_000).toISOString());
 
     expect(result.changes).toBe(1);
 
