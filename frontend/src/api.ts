@@ -65,6 +65,27 @@ export async function purchase(): Promise<{ purchaseId: number; message: string 
   return res.data;
 }
 
+// Get current sale config (admin)
+export async function fetchAdminSale(): Promise<SaleState | null> {
+  try {
+    const res = await api.get("/admin/sale");
+    return res.data;
+  } catch {
+    return null;
+  }
+}
+
+// Create a new sale (admin)
+export async function createSale(data: {
+  productName: string;
+  stock:       number;
+  startTime:   string;
+  endTime:     string;
+}): Promise<{ saleId: number; message: string }> {
+  const res = await api.post("/admin/sale", data);
+  return res.data;
+}
+
 // Check if current user has already purchased
 export async function fetchPurchaseStatus(userId: string): Promise<PurchaseStatus> {
   const res = await api.get(`/api/purchase/${encodeURIComponent(userId)}`);

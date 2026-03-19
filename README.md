@@ -221,17 +221,55 @@ npm run dev
 npm run build && npm start
 ```
 
+### Run the frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open in browser:
+- `http://localhost:5173` — sale page
+- `http://localhost:5173/admin` — admin page (create + configure sales)
+
 ### Seed a sale
 
 ```bash
+# Default — starts in 1 min, 30 min duration, 10 items
 npx ts-node src/db/seed.ts
+
+# Custom stock and timing
+npx ts-node src/db/seed.ts --stock 50 --in 5 --duration 60
+
+# Start immediately (useful for local testing)
+npx ts-node src/db/seed.ts --now --stock 10
+
+# Exact ISO timestamps
+npx ts-node src/db/seed.ts --start "2024-06-01T14:00:00Z" --end "2024-06-01T14:30:00Z" --stock 100
+
+# Custom product name
+npx ts-node src/db/seed.ts --product "Air Max 90" --stock 25 --in 2
+
+# Show all options
+npx ts-node src/db/seed.ts --help
 ```
 
-The seed script is safe to run multiple times. Each run:
-1. Clears all `sale:*` keys from Redis
-2. Wipes the `sales` and `purchases` tables
-3. Inserts a fresh sale starting 1 minute from now with 10 items
-4. Seeds the Redis stock counter from the DB
+**CLI arguments:**
+
+| Arg | Description | Default |
+|---|---|---|
+| `--stock <n>` | Number of items available | `10` |
+| `--in <mins>` | Start in N minutes from now | `1` |
+| `--duration <mins>` | Sale duration in minutes | `30` |
+| `--start <iso>` | Exact start time as ISO 8601 | — |
+| `--end <iso>` | Exact end time as ISO 8601 | — |
+| `--now` | Start the sale immediately | — |
+| `--product <name>` | Product name | `"Limited Edition Sneaker"` |
+
+`--start` and `--end` take priority over `--in` and `--duration` when both are provided.
+
+The seed script is safe to run multiple times. Each run clears all `sale:*` keys from Redis and wipes the DB before inserting a fresh sale.
 
 > **Never run the seed while a sale is in progress** — it will wipe active purchases.
 
@@ -349,7 +387,7 @@ app.post("/purchase", { preHandler: [authenticate] }, handler);
 - [x] Step 2b — Mock auth service (20 tests ✓)
 - [x] Step 3 — Purchase service logic (20 tests ✓)
 - [x] Step 4 — API routes + middleware (19 tests ✓)
-- [x] Step 5 — React frontend (14 tests ✓)
+- [x] Step 5 — React frontend — sale page + admin page (14 tests ✓)
 - [x] Step 6 — Stress test (7 assertions ✓)
 
 ---
@@ -402,6 +440,52 @@ For this project, `userId` in the request body acts as identity — there is no 
 
 ---
 
+## Frontend
+
+Built with React + Vite + TypeScript. Two pages, zero router libraries.
+
+### Sale page — `http://localhost:5173`
+
+The main user-facing page. Polls `GET /api/sale` every 5 seconds.
+
+| State | What the user sees |
+|---|---|
+| Upcoming | Countdown timer to sale start |
+| Active | Live stock bar + countdown to end + Buy Now button |
+| Ended | Sale has ended message |
+
+Two-step purchase flow:
+1. Enter a userId (e.g. `alice@example.com`) → gets a JWT from `/auth/token`
+2. Click **Buy Now** → calls `POST /api/purchase` with the JWT
+3. Shows result: success / already purchased / sold out / not active
+
+### Admin page — `http://localhost:5173/admin`
+
+Lets you configure and create a new sale without touching the CLI.
+
+**Current sale card** — shows product name, stock remaining, status badge, and start/end times.
+
+**Create sale form** — fields for:
+- Product name
+- Stock count
+- Start time (datetime picker, local timezone)
+- End time (datetime picker, local timezone)
+
+Creating a new sale clears all existing sales and purchases and re-seeds Redis. Both the admin card and the main sale page update automatically via React Query cache invalidation.
+
+### API endpoints used by the frontend
+
+| Route | Used by |
+|---|---|
+| `GET /api/sale` | Sale page — polls every 5s |
+| `POST /auth/token` | Login form — gets JWT |
+| `POST /api/purchase` | Buy Now button |
+| `GET /api/purchase/:userId` | Checks if user already bought |
+| `GET /admin/sale` | Admin page — current config |
+| `POST /admin/sale` | Admin page — create new sale |
+
+---
+
 ## API Routes
 
 `src/routes/` — thin route handlers that validate input, call the service layer, and map results to HTTP status codes. No business logic lives here.
@@ -415,6 +499,8 @@ For this project, `userId` in the request body acts as identity — there is no 
 | `POST` | `/api/purchase` | JWT | Attempt to purchase |
 | `GET` | `/api/purchase/:userId` | JWT | Check own purchase status |
 | `POST` | `/auth/token` | None | Get a JWT (dev only) |
+| `GET` | `/admin/sale` | None | Get current sale config |
+| `POST` | `/admin/sale` | None | Create a new sale (clears existing) |
 
 ### Request / response examples
 
