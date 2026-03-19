@@ -10,7 +10,7 @@
     "test": "jest --runInBand",
     "test:unit": "jest tests/unit --runInBand",
     "test:integration": "jest tests/integration --runInBand",
-    "test:stress": "ts-node tests/stress/purchaseLoad.ts"
+    "test:stress": "ts-node --project tsconfig.json tests/stress/purchaseLoad.ts"
   },
   "dependencies": {
     "fastify": "^4.26.0",
