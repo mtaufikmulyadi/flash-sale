@@ -1,11 +1,6 @@
-/**
- * Server entry point
- * Starts the HTTP listener. Import buildApp from app.ts instead
- * of this file so tests never accidentally start a TCP server.
- */
-
-import { buildApp } from "./app";
+import { buildApp }                   from "./app";
 import { initialiseSaleStock, getActiveSale } from "./services/saleService";
+import { startCleanupJob }            from "./jobs/cleanupJob";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const HOST = "0.0.0.0";
@@ -13,17 +8,19 @@ const HOST = "0.0.0.0";
 async function start() {
   const app = await buildApp();
 
-  // Seed Redis stock from DB on startup
-  // Handles the case where server restarted mid-sale
+  // Re-seed Redis stock from DB on startup
   const sale = getActiveSale();
   if (sale) {
     try {
       await initialiseSaleStock(sale.id);
       app.log.info(`Sale ${sale.id} stock initialised in Redis`);
-    } catch (err) {
+    } catch {
       app.log.warn("Could not initialise sale stock in Redis");
     }
   }
+
+  // Start background cleanup job — restores stock for expired reservations
+  startCleanupJob(60_000); // runs every 60 seconds
 
   try {
     await app.listen({ port: PORT, host: HOST });
