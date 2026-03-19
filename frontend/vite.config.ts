@@ -7,8 +7,9 @@ export default defineConfig({
     port: 5173,
     // Proxy API calls to backend — avoids CORS in development
     proxy: {
-      "/api": "http://localhost:3000",
-      "/auth": "http://localhost:3000",
+      "/api":         "http://localhost:3000",
+      "/auth":        "http://localhost:3000",
+      "/admin/sale":  "http://localhost:3000",
     },
   },
   test: {

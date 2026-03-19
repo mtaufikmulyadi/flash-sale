@@ -13,6 +13,7 @@ import rateLimit from "@fastify/rate-limit";
 import saleRoutes     from "./routes/sale";
 import purchaseRoutes from "./routes/purchase";
 import authRoutes     from "./routes/auth";
+import adminRoutes    from "./routes/admin";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -47,6 +48,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(saleRoutes,     { prefix: "/api" });
   await app.register(purchaseRoutes, { prefix: "/api" });
   await app.register(authRoutes,     { prefix: "/auth" });
+  await app.register(adminRoutes,    { prefix: "/admin" });
 
   // ── Global error handler ─────────────────────────────────────
   app.setErrorHandler((error, _req, reply) => {
