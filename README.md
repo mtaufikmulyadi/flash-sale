@@ -237,6 +237,66 @@ The seed script is safe to run multiple times. Each run:
 
 ---
 
+## Stress Test
+
+`tests/stress/purchaseLoad.ts` — proves the system never oversells under concurrency.
+
+```bash
+npm run test:stress
+```
+
+Fires **500 concurrent purchase requests** at a sale with **10 items**. Uses Fastify's `inject()` so no real TCP server is needed.
+
+### What it asserts
+
+| # | Assertion | Why it matters |
+|---|---|---|
+| 1 | Exactly 10 confirmed purchases (201s) | Stock was never exceeded |
+| 2 | DB has exactly 10 purchase records | Every 201 was persisted |
+| 3 | Zero duplicate purchases in DB | One-per-user rule held |
+| 4 | Redis stock counter = 0 after all purchases | Compensation logic worked correctly |
+| 5 | All 500 requests received a response | No hangs or crashes |
+| 6 | All responses are accounted for | No unexpected status codes |
+| 7 | Server still healthy after load | No memory leaks or crashes |
+
+### Expected output
+
+```
+  Flash Sale — Stress Test
+  500 concurrent users · 10 items in stock
+
+  → Building app...
+  → Seeding sale with stock=10, starting NOW...
+  ✓ Sale seeded and active
+  → Generating 500 user tokens...
+  → Firing 500 concurrent purchase requests...
+  → All requests completed in ~300ms
+
+  Response breakdown:
+    201 Confirmed:       10
+    409 Already bought:   0
+    410 Sold out:        490
+
+  Assertions:
+  ✓ Exactly 10 confirmed purchases (201s)
+  ✓ DB has exactly 10 purchase records
+  ✓ Zero duplicate purchases in DB
+  ✓ Redis stock counter = 0 after all purchases
+  ✓ All 500 requests received a response
+  ✓ All responses are accounted for
+  ✓ Server still healthy after load
+
+  ────────────────────────────────────────────────
+  All 7 assertions passed ✓
+  500 users · 10 items · ~300ms · zero oversell
+```
+
+### Why this works
+
+500 users all call `DECR` on the same Redis key simultaneously. Redis is single-threaded — it processes each `DECR` serially. The first 10 get a non-negative result and proceed to the DB write. The remaining 490 get a negative result, trigger the compensation (`INCR` + `DEL` user key), and receive 410. No locks, no queues — just atomic operations.
+
+---
+
 ## Known Issues & Fixes
 
 ### Bug — stock shows more than total (e.g. `14 / 10`)
@@ -290,7 +350,7 @@ app.post("/purchase", { preHandler: [authenticate] }, handler);
 - [x] Step 3 — Purchase service logic (20 tests ✓)
 - [x] Step 4 — API routes + middleware (19 tests ✓)
 - [x] Step 5 — React frontend (14 tests ✓)
-- [ ] Step 6 — Stress test
+- [x] Step 6 — Stress test (7 assertions ✓)
 
 ---
 
