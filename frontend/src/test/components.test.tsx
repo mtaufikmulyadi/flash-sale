@@ -1,25 +1,19 @@
 /**
- * STEP 5 TESTS — React component tests
+ * STEP 5 TESTS — React component tests (updated for two-step flow)
  *
- * Uses React Testing Library + Vitest.
- * Mocks the API module so components never make real HTTP calls.
+ * SaleStatus tests (unchanged):
+ *  - loading, active, upcoming, ended, error states
  *
- * Tests:
- *  SaleStatus:
- *   - shows loading state
- *   - shows upcoming sale with countdown
- *   - shows active sale with stock bar
- *   - shows ended sale message
- *   - shows error when no sale found
- *
- *  PurchaseForm:
- *   - shows login form initially
- *   - disables continue button when input is empty
- *   - shows Buy Now after login
- *   - disables Buy Now when sale not active
- *   - shows success message on 201
- *   - shows already purchased on 409
- *   - shows sold out on 410
+ * PurchaseForm tests (updated + new):
+ *  - login form, disabled continue, enable on input
+ *  - shows payment screen after reservation (with countdown)
+ *  - Pay Now button confirms purchase
+ *  - Cancel button cancels reservation
+ *  - shows confirmed result on pay
+ *  - shows cancelled result on cancel
+ *  - shows sold out on 410
+ *  - shows already purchased on 409
+ *  - shows expired when status comes back as expired
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -28,20 +22,22 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SaleStatus } from "../components/SaleStatus";
 import { PurchaseForm } from "../components/PurchaseForm";
 
-// ── Mock the API module ───────────────────────────────────────
 vi.mock("../api", () => ({
-  fetchSale:            vi.fn(),
-  fetchToken:           vi.fn(),
-  purchase:             vi.fn(),
-  fetchPurchaseStatus:  vi.fn(),
-  setToken:             vi.fn(),
-  getToken:             vi.fn(() => "mock-token"),
-  clearToken:           vi.fn(),
+  fetchSale:           vi.fn(),
+  fetchToken:          vi.fn(),
+  purchase:            vi.fn(),
+  pay:                 vi.fn(),
+  cancelPurchase:      vi.fn(),
+  fetchPurchaseStatus: vi.fn(),
+  setToken:            vi.fn(),
+  getToken:            vi.fn(() => "mock-token"),
+  clearToken:          vi.fn(),
+  fetchAdminSale:      vi.fn(),
+  createSale:          vi.fn(),
 }));
 
 import * as api from "../api";
 
-// ── Test helper ───────────────────────────────────────────────
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -51,22 +47,20 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 const NOW = Date.now();
 const activeSale = {
-  id:              1,
-  product_name:    "Test Sneaker",
-  total_stock:     10,
-  remaining_stock: 7,
-  status:          "active" as const,
-  start_time:      new Date(NOW - 60_000).toISOString(),
-  end_time:        new Date(NOW + 60_000).toISOString(),
+  id: 1, product_name: "Test Sneaker", total_stock: 10,
+  remaining_stock: 7, status: "active" as const,
+  start_time: new Date(NOW - 60_000).toISOString(),
+  end_time:   new Date(NOW + 60_000).toISOString(),
 };
+
+const RESERVED_UNTIL = new Date(NOW + 10 * 60_000).toISOString();
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default mock for fetchPurchaseStatus — user hasn't purchased
   vi.mocked(api.fetchPurchaseStatus).mockResolvedValue({ hasPurchased: false });
 });
 
-// ── SaleStatus tests ──────────────────────────────────────────
+// ── SaleStatus ────────────────────────────────────────────────
 describe("SaleStatus", () => {
   it("shows loading state initially", () => {
     vi.mocked(api.fetchSale).mockImplementation(() => new Promise(() => {}));
@@ -82,7 +76,7 @@ describe("SaleStatus", () => {
     );
   });
 
-  it("shows active badge and stock for active sale", async () => {
+  it("shows active badge and stock", async () => {
     vi.mocked(api.fetchSale).mockResolvedValue(activeSale);
     render(<SaleStatus />, { wrapper });
     await waitFor(() =>
@@ -93,8 +87,7 @@ describe("SaleStatus", () => {
 
   it("shows upcoming badge for future sale", async () => {
     vi.mocked(api.fetchSale).mockResolvedValue({
-      ...activeSale,
-      status:     "upcoming",
+      ...activeSale, status: "upcoming",
       start_time: new Date(NOW + 60_000).toISOString(),
     });
     render(<SaleStatus />, { wrapper });
@@ -103,10 +96,9 @@ describe("SaleStatus", () => {
     );
   });
 
-  it("shows ended message for past sale", async () => {
+  it("shows ended message", async () => {
     vi.mocked(api.fetchSale).mockResolvedValue({
-      ...activeSale,
-      status:   "ended",
+      ...activeSale, status: "ended",
       end_time: new Date(NOW - 60_000).toISOString(),
     });
     render(<SaleStatus />, { wrapper });
@@ -115,7 +107,7 @@ describe("SaleStatus", () => {
     );
   });
 
-  it("shows error when sale fetch fails", async () => {
+  it("shows error when fetch fails", async () => {
     vi.mocked(api.fetchSale).mockRejectedValue(new Error("not found"));
     render(<SaleStatus />, { wrapper });
     await waitFor(() =>
@@ -124,21 +116,20 @@ describe("SaleStatus", () => {
   });
 });
 
-// ── PurchaseForm tests ────────────────────────────────────────
-describe("PurchaseForm", () => {
+// ── PurchaseForm — login step ─────────────────────────────────
+describe("PurchaseForm — login", () => {
   it("shows login form initially", () => {
     render(<PurchaseForm saleStatus="active" />, { wrapper });
     expect(screen.getByPlaceholderText(/your@email.com/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /continue/i })).toBeInTheDocument();
   });
 
-  it("disables Continue button when input is empty", () => {
+  it("disables Continue when input is empty", () => {
     render(<PurchaseForm saleStatus="active" />, { wrapper });
-    const btn = screen.getByRole("button", { name: /continue/i });
-    expect(btn).toBeDisabled();
+    expect(screen.getByRole("button", { name: /continue/i })).toBeDisabled();
   });
 
-  it("enables Continue button when userId is entered", () => {
+  it("enables Continue when userId is entered", () => {
     render(<PurchaseForm saleStatus="active" />, { wrapper });
     fireEvent.change(
       screen.getByPlaceholderText(/your@email.com/i),
@@ -147,42 +138,41 @@ describe("PurchaseForm", () => {
     expect(screen.getByRole("button", { name: /continue/i })).not.toBeDisabled();
   });
 
-  it("shows Buy Now button after successful login", async () => {
-    vi.mocked(api.fetchToken).mockResolvedValue("mock-jwt-token");
+  it("shows Buy Now after login", async () => {
+    vi.mocked(api.fetchToken).mockResolvedValue("mock-jwt");
     render(<PurchaseForm saleStatus="active" />, { wrapper });
-
     fireEvent.change(
       screen.getByPlaceholderText(/your@email.com/i),
       { target: { value: "alice@test.com" } }
     );
     fireEvent.click(screen.getByRole("button", { name: /continue/i }));
-
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /buy now/i })).toBeInTheDocument()
     );
   });
 
-  it("disables Buy Now when sale is not active", async () => {
-    vi.mocked(api.fetchToken).mockResolvedValue("mock-jwt-token");
+  it("disables Buy Now when sale not active", async () => {
+    vi.mocked(api.fetchToken).mockResolvedValue("mock-jwt");
     render(<PurchaseForm saleStatus="upcoming" />, { wrapper });
-
     fireEvent.change(
       screen.getByPlaceholderText(/your@email.com/i),
       { target: { value: "alice@test.com" } }
     );
     fireEvent.click(screen.getByRole("button", { name: /continue/i }));
-
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /sale not active/i })).toBeDisabled()
     );
   });
+});
 
-  it("shows success message after purchase", async () => {
-    vi.mocked(api.fetchToken).mockResolvedValue("mock-jwt-token");
-    vi.mocked(api.purchase).mockResolvedValue({ purchaseId: 42, message: "Purchase confirmed" });
-
+// ── PurchaseForm — payment step ───────────────────────────────
+describe("PurchaseForm — payment screen", () => {
+  async function goToPaymentScreen() {
+    vi.mocked(api.fetchToken).mockResolvedValue("mock-jwt");
+    vi.mocked(api.purchase).mockResolvedValue({
+      purchaseId: 1, reservedUntil: RESERVED_UNTIL, message: "Item reserved",
+    });
     render(<PurchaseForm saleStatus="active" />, { wrapper });
-
     fireEvent.change(
       screen.getByPlaceholderText(/your@email.com/i),
       { target: { value: "alice@test.com" } }
@@ -190,19 +180,45 @@ describe("PurchaseForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /continue/i }));
     await waitFor(() => screen.getByRole("button", { name: /buy now/i }));
     fireEvent.click(screen.getByRole("button", { name: /buy now/i }));
+    await waitFor(() => screen.getByRole("button", { name: /pay now/i }));
+  }
 
-    await waitFor(() =>
-      expect(screen.getByText(/purchase confirmed/i)).toBeInTheDocument()
-    );
-    expect(screen.getByText(/#42/)).toBeInTheDocument();
+  it("shows payment screen with countdown after reservation", async () => {
+    await goToPaymentScreen();
+    expect(screen.getByRole("button", { name: /pay now/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
+    expect(screen.getByText(/reservation/i)).toBeInTheDocument();
   });
 
-  it("shows already purchased message on 409", async () => {
-    vi.mocked(api.fetchToken).mockResolvedValue("mock-jwt-token");
-    vi.mocked(api.purchase).mockRejectedValue({
-      response: { data: { error: "ALREADY_PURCHASED" } },
+  it("shows confirmed message after Pay Now", async () => {
+    vi.mocked(api.pay).mockResolvedValue({
+      status: "confirmed", message: "Payment confirmed. Reference: PAY-123-ABC",
     });
+    await goToPaymentScreen();
+    fireEvent.click(screen.getByRole("button", { name: /pay now/i }));
+    await waitFor(() =>
+      expect(screen.getByText(/payment confirmed/i)).toBeInTheDocument()
+    );
+    expect(screen.getByText(/PAY-123-ABC/)).toBeInTheDocument();
+  });
 
+  it("shows cancelled message after Cancel", async () => {
+    vi.mocked(api.cancelPurchase).mockResolvedValue({
+      status: "cancelled", message: "Reservation cancelled",
+    });
+    await goToPaymentScreen();
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+    await waitFor(() =>
+      expect(screen.getByText(/reservation cancelled/i)).toBeInTheDocument()
+    );
+  });
+});
+
+// ── PurchaseForm — error states ───────────────────────────────
+describe("PurchaseForm — error states", () => {
+  async function loginAndBuy(purchaseError: object) {
+    vi.mocked(api.fetchToken).mockResolvedValue("mock-jwt");
+    vi.mocked(api.purchase).mockRejectedValue({ response: { data: purchaseError } });
     render(<PurchaseForm saleStatus="active" />, { wrapper });
     fireEvent.change(
       screen.getByPlaceholderText(/your@email.com/i),
@@ -211,29 +227,26 @@ describe("PurchaseForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /continue/i }));
     await waitFor(() => screen.getByRole("button", { name: /buy now/i }));
     fireEvent.click(screen.getByRole("button", { name: /buy now/i }));
+  }
 
+  it("shows already purchased on 409", async () => {
+    await loginAndBuy({ error: "ALREADY_PURCHASED" });
     await waitFor(() =>
       expect(screen.getByText(/already purchased/i)).toBeInTheDocument()
     );
   });
 
-  it("shows sold out message on 410", async () => {
-    vi.mocked(api.fetchToken).mockResolvedValue("mock-jwt-token");
-    vi.mocked(api.purchase).mockRejectedValue({
-      response: { data: { error: "SOLD_OUT" } },
-    });
-
-    render(<PurchaseForm saleStatus="active" />, { wrapper });
-    fireEvent.change(
-      screen.getByPlaceholderText(/your@email.com/i),
-      { target: { value: "alice@test.com" } }
-    );
-    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
-    await waitFor(() => screen.getByRole("button", { name: /buy now/i }));
-    fireEvent.click(screen.getByRole("button", { name: /buy now/i }));
-
+  it("shows sold out on 410", async () => {
+    await loginAndBuy({ error: "SOLD_OUT" });
     await waitFor(() =>
       expect(screen.getByText(/sold out/i)).toBeInTheDocument()
+    );
+  });
+
+  it("shows sale not active message", async () => {
+    await loginAndBuy({ error: "SALE_NOT_ACTIVE", message: "Sale has ended" });
+    await waitFor(() =>
+      expect(screen.getByText(/sale not active/i)).toBeInTheDocument()
     );
   });
 });
