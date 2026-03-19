@@ -108,6 +108,7 @@ flash-sale/
 │       └── components/SaleWidget.tsx
 ├── package.json
 ├── tsconfig.json
+├── setup.py
 └── jest.config.ts
 ```
 
